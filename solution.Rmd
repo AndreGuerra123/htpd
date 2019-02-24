@@ -1,0 +1,107 @@
+---
+title: "HTP Exercise Codility"
+output: html_notebook
+---
+
+#Step #1 - Import data into R DataFrame
+The goal here is to import the data available into a R Dataframe. Currently, the data contains a counter which is a unique identifier of the experiment/sample/try, the plate number (a identifier factor), the strain which (a identifier factor), the well_type (a identifier factor),the robot (a identifier factor), the stacker position (a identifier factor) and the value obtained.
+
+```{r}
+library(readxl)
+data <- read_excel("data.xlsx")
+
+#Fix type of data
+data$plate <- as.factor(data$plate)
+data$strain <- as.factor(data$strain)
+data$well_type <- as.factor(data$well_type)
+data$robot <- as.factor(data$robot)
+
+
+```
+
+#Step #2 - Summarise the data.
+By running a summary on the complete dataframe we can get some useful information.
+```{r}
+summary(data)
+```
+
+Here, we can see that there are 96 samples per plate,  Y0001 and Y0002 strains seem to be used for PC and has PS, the number of samples per robot is the same, stacker_position doesn't seem to be very informative (maybe just a positional refererence in the plate) and will not be used in our analysis, and finnaly, the value measured basic stats show that has a high variance. Since there are several factor to take in account, hypothesis testing is necessary to check their relevance. 
+
+*Note that, the experiments were carried in a iterative mode, meaning that progressively the value variable will increase since manual of the best strains were probably carried.
+
+#Step #3 - Hypothesis testing
+
+The factors plate, well_type and robot will be put to null hypothesis testing individually and in combination in ANOVA and MANOVA analysis.
+
+##Step #3.1 - Plate ANOVA
+```{r}
+library(dplyr)
+group_by(data, plate) %>%
+  summarise(
+    count = n(),
+    mean = mean(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE)
+  )
+```
+
+```{r}
+library(ggplot2)
+ggplot(data, aes(x=plate, y=value)) + geom_boxplot(outlier.colour="red", outlier.shape=8,outlier.size=3)
+```
+
+```{r}
+res.aov <- aov(value ~ plate, data)
+summary(res.aov)
+```
+
+##Step #3.2 - Well Type ANOVA
+```{r}
+library(dplyr)
+group_by(data, well_type) %>%
+  summarise(
+    count = n(),
+    mean = mean(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE)
+  )
+```
+
+
+```{r}
+library(ggplot2)
+ggplot(data, aes(x=well_type, y=value)) + geom_boxplot(outlier.colour="red", outlier.shape=8,outlier.size=3)
+```
+
+```{r}
+res.aov <- aov(value ~ plate, data)
+summary(res.aov)
+```
+
+
+##Step #3.3 - Robot ANOVA
+
+
+```{r}
+library(dplyr)
+group_by(data, robot) %>%
+  summarise(
+    count = n(),
+    mean = mean(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE)
+  )
+```
+
+
+```{r}
+library(ggplot2)
+ggplot(data, aes(x=robot, y=value)) + geom_boxplot(outlier.colour="red", outlier.shape=8,outlier.size=3)
+```
+
+```{r}
+res.aov <- aov(value ~ robot, data)
+summary(res.aov)
+```
+
+#Step #3.4 - Two-way ANOVA
+
+
+
