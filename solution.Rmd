@@ -1,7 +1,12 @@
 ---
 title: "HTP Exercise Codility"
-output: html_notebook
+output:
+  html_notebook: default
+  html_document:
+    df_print: paged
+  pdf_document: default
 ---
+
 
 #Step #1 - Import data into R DataFrame
 The goal here is to import the data available into a R Dataframe. Currently, the data contains a counter which is a unique identifier of the experiment/sample/try, the plate number (a identifier factor), the strain which (a identifier factor), the well_type (a identifier factor),the robot (a identifier factor), the stacker position (a identifier factor) and the value obtained.
@@ -25,13 +30,12 @@ By running a summary on the complete dataframe we can get some useful informatio
 summary(data)
 ```
 
-Here, we can see that there are 96 samples per plate,  Y0001 and Y0002 strains seem to be used for PC and has PS, the number of samples per robot is the same, stacker_position doesn't seem to be very informative (maybe just a positional refererence in the plate) and will not be used in our analysis, and finnaly, the value measured basic stats show that has a high variance. Since there are several factor to take in account, hypothesis testing is necessary to check their relevance. 
+Here, we can see that there are 96 samples per plate,  Y0001 and Y0002 strains seem to be used for PC and has PS, the number of samples per robot is the same (60 plates x 96 samples), stacker_position doesn't seem to be very informative (maybe just a positional refererence in the plate) and will not be used in our analysis, and finnaly, the value basic stats show that it has a high variance. Since there are several factor to take in account, hypothesis testing is necessary to check their relevance. 
 
-*Note that, the experiments were carried in a iterative mode, meaning that progressively the value variable will increase since manual of the best strains were probably carried.
 
 #Step #3 - Hypothesis testing
 
-The factors plate, well_type and robot will be put to null hypothesis testing individually and in combination in ANOVA and MANOVA analysis.
+The factors plate, well_type and robot will be put to null hypothesis testing individually and in combination in ANOVA and 2-way ANOVA.
 
 ##Step #3.1 - Plate ANOVA
 ```{r}
@@ -54,6 +58,9 @@ res.aov <- aov(value ~ plate, data)
 summary(res.aov)
 ```
 
+By doing an ANOVA on plate factor, testing our null hypothesis means of the independent variable (value) does not vary between the different plates. As we can see in the figure above and supported by the ANOVA analysis there are significant differences between the means of the value grouped by plate. More specifically, by the analysis of the figure it seems that the plates 1-20,21-40, and 41-60 were iteratively analysed and the mean of the value is decreasing in each iteration. A more profund analysis of the dataset reveals that the plates 1-20, 21-40 and 41-60 were analyzed by Bender, Terminator and C3PO respectively. Another relevant information is that the tested strains do not repeat themselfs across both plates or robots.Several obvious outliers were observed, maybe revealing strains of interest or contaminations.
+
+
 ##Step #3.2 - Well Type ANOVA
 ```{r}
 library(dplyr)
@@ -72,9 +79,11 @@ ggplot(data, aes(x=well_type, y=value)) + geom_boxplot(outlier.colour="red", out
 ```
 
 ```{r}
-res.aov <- aov(value ~ plate, data)
+res.aov <- aov(value ~ well_type, data)
 summary(res.aov)
 ```
+
+By doing an ANOVA on well_type factor, testing our null hypothesis means of the independent variable (value) does not vary between the different weel_types. As we can see in the figure above and supported by the ANOVA analysis there are significant differences between the means of the value grouped by well_type, since Process Control class seems to have overall lower mean. Standard well outlier may be our strains of interest.
 
 
 ##Step #3.3 - Robot ANOVA
@@ -89,8 +98,6 @@ group_by(data, robot) %>%
     sd = sd(value, na.rm = TRUE)
   )
 ```
-
-
 ```{r}
 library(ggplot2)
 ggplot(data, aes(x=robot, y=value)) + geom_boxplot(outlier.colour="red", outlier.shape=8,outlier.size=3)
@@ -100,8 +107,139 @@ ggplot(data, aes(x=robot, y=value)) + geom_boxplot(outlier.colour="red", outlier
 res.aov <- aov(value ~ robot, data)
 summary(res.aov)
 ```
+By doing an ANOVA on robot factor, testing our null hypothesis means of the independent variable (value) does not vary between the different robots. As we can see in the figure above and supported by the ANOVA analysis there are no significant differences between the means of the value grouped by robot. This confirms what was seen in the plate ANOVA, that although the mean over plate number decreases in each robot plate set (1-20,21-40,etc) there are no statistically significant differentes between the three sets.Moreover, low value outlier are recorrent in all boxplots as seen in the image shich correspond to the PC samples.
 
-#Step #3.4 - Two-way ANOVA
+
+##Step #3.4 - Two-way ANOVA (Well Type vs Robot)
+
+```{r}
+require("dplyr")
+group_by(data, well_type, robot) %>%
+  summarise(
+    count = n(),
+    mean = mean(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE)
+  )
+```
+
+```{r}
+library(ggplot2)
+ggplot(data = data, aes(x = well_type, y = value)) + 
+geom_boxplot(aes(fill = robot), width = 0.8) + theme_bw()
+```
+
+```{r}
+res.aov2 <- aov(value ~ well_type * robot, data = data)
+summary(res.aov2)
+```
+
+Accordingly, to the 2-way ANOVA test between the well_type and robot variables, no significant difference could be found in the means of the samples in relation to the factor interaction. As verified before there is a statistical difference between the means of samples in relation to the well_type itself. 
+
+##Step 3.5 - Two-way ANOVA (Plate vs Robot)
+
+```{r}
+require("dplyr")
+group_by(data, plate, robot) %>%
+  summarise(
+    count = n(),
+    mean = mean(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE)
+  )
+```
+
+```{r}
+library(ggplot2)
+ggplot(data = data, aes(x = plate, y = value)) + 
+geom_boxplot(aes(fill = robot), width = 0.8) + theme_bw()
+```
+
+```{r}
+res.aov2 <- aov(value ~ plate*robot, data = data)
+summary(res.aov2)
+```
+
+The 2-way ANOVA test between the plate and robot variables, produces no relevant information since as verified before the samples are only attributed to a single robot. As verified before there is a statistical difference between the means of samples in relation to the plate itself.
+
+##Step 3.6 - Two-way ANOVA (Plate vs Well Type)
+```{r}
+require("dplyr")
+group_by(data, plate, well_type) %>%
+  summarise(
+    count = n(),
+    mean = mean(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE)
+  )
+```
+```{r}
+library(ggplot2)
+ggplot(data = data, aes(x = plate, y = value)) + 
+geom_boxplot(aes(fill = well_type), width = 0.8) + theme_bw()
+```
+
+```{r}
+res.aov2 <- aov(value ~ plate * well_type, data = data)
+summary(res.aov2)
+```
+
+Accordingly, to the 2-way ANOVA test between the plate and well_type variables, there are significant differences in the means of the samples in relation to the factor interaction. As verified before there is a statistical difference between the means of samples in relation to the well_type and plate factors. 
+
+#Step #4 - Problem Statement Evaluation
+
+Accordingly to the observed data, several assumptions to the problem statement seem evident:
+   
+   - The counter variable is a sample unique identifier.
+   - The stacker_position variable is a positional identifier of each plate in the robot, and does not seem contributive to the problem although not verified statistically.
+   - The same PC and PS strains were used for all plates, repeating the analysis 4 times for each.
+   - 88 unique strains (X's) were analysed as SW for plate and do not repeate for each plate or in mutiple plates.
+   - The same plates are not analyzed by multiple robots.
+   - The robots analysis return the same variable - value.
+   - Whithin a single robot analysis (ex: Bender), there is a set of plates (ex: 1-20) which have a decreasing trend of the value variable mean in the plates assuming the plate order. If it is a iterative process, and the plate number represents each iteration, the value is progressively decreasing for each iteration. However, plate number could be designated based on other criteria or not be ordered at all.
+   
+Moreover, accordingly to the hypothesis testing (ANOVA and 2-way ANOVA):
+
+  - There are significant differences between the means of the well_type and plate factors.
+  - There are significant differences between the means of the interaction between well_type and plate factors
+  
+Further assumptions, hereby described, were taken in consideration:
+
+  - Both the plate and robot variability should be taken in consideration when selecting strains
+  - Assuming independece between samples.
+  - The goal is to select strains with higher value.
 
 
+#Step #5 - Data Treatment
+
+In order to normalize the data in each plate, we can first normalize each sample accordingly to the PC sample mean and sample variance:
+
+```{r}
+data1<-group_by(data,plate, well_type)%>%summarise(mean = mean(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE))%>%filter(well_type=="Process Control")%>%merge(data,by="plate")%>%mutate(value_pc = (value-mean)/sd)
+data1
+
+```
+
+Similarly, the mean of the PS was calculated for each plate,
+
+```{r}
+data2<-group_by(data1,plate,well_type.y)%>%summarise(mean1 = mean(value_pc, na.rm = TRUE),
+    sd1 = sd(value_pc, na.rm = TRUE))%>%filter(well_type.y=="Parent Strain")%>%merge(data1,by="plate")
+data2
+
+```
+
+# Step #6 - Selection of Strains
+
+In order to select the most promising strains, the rule of 3 sigma was applied. The value of the strain being evaluated should be superior to 3 times the standard deviation of the PS in order to be considered to selection.
+```{r}
+final<-mutate(data2,optimal = value_pc > mean1*(sd1*3))%>%filter(optimal == TRUE)%>%filter(well_type.y.y == 'Standard Well')%>%arrange(value_pc)
+final
+
+```
+
+
+```{r}
+library(ggplot2)
+ggplot(final, aes(x= strain, y= value_pc, color=robot))+
+  geom_point() +geom_text(aes(label=strain),hjust=0, vjust=0)
+```
 
